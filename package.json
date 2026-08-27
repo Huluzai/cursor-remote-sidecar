@@ -1,0 +1,46 @@
+{
+  "name": "cursor-remote-sidecar",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Path C local companion: run Cursor SDK agents on Mac and expose HTTP/SSE to the iOS app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Huluzai/cursor-remote-sidecar.git"
+  },
+  "homepage": "https://github.com/Huluzai/cursor-remote-sidecar#readme",
+  "bugs": {
+    "url": "https://github.com/Huluzai/cursor-remote-sidecar/issues"
+  },
+  "bin": {
+    "cursor-remote-sidecar": "./scripts/supervise.mjs"
+  },
+  "files": [
+    "dist",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "start": "node scripts/supervise.mjs",
+    "start:once": "node dist/index.js",
+    "dev": "node --import tsx --watch src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test src/__tests__/**/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.0",
+    "express": "^4.21.2",
+    "nanoid": "^5.1.5",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
