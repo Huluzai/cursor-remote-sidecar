@@ -3,11 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import {
-  LOGIN_REQUIRED_MESSAGE,
-  resolveCursorAuth,
-} from "../auth.js";
+import { loginRequiredMessage, resolveCursorAuth } from "../auth.js";
 import { loadOrCreatePairingTokenForTest } from "../config.js";
+import { setLocale } from "../i18n/index.js";
 import { sdkAuthOptions } from "../sdk-auth.js";
 import type { SidecarConfig } from "../config.js";
 
@@ -72,9 +70,15 @@ describe("resolveCursorAuth", () => {
         return true;
       },
     );
-    assert.match(LOGIN_REQUIRED_MESSAGE, /浏览器/);
-    assert.doesNotMatch(LOGIN_REQUIRED_MESSAGE, /CURSOR_API_KEY/);
-    assert.doesNotMatch(LOGIN_REQUIRED_MESSAGE, /Dashboard/);
+    setLocale("zh");
+    const zhMsg = loginRequiredMessage();
+    assert.match(zhMsg, /浏览器/);
+    assert.doesNotMatch(zhMsg, /CURSOR_API_KEY/);
+    assert.doesNotMatch(zhMsg, /Dashboard/);
+    setLocale("en");
+    const enMsg = loginRequiredMessage();
+    assert.match(enMsg, /browser/i);
+    assert.doesNotMatch(enMsg, /CURSOR_API_KEY/);
   });
 });
 

@@ -23,6 +23,7 @@ npx github:Huluzai/cursor-remote-sidecar
 export SIDECAR_CWD=/path/to/your/local/project   # 可选；不设则默认为用户主目录
 export SIDECAR_PORT=8787
 export SIDECAR_MODEL=composer-2.5
+# export SIDECAR_LANG=zh                         # 终端文案：zh / en；不设则跟系统 LANG
 # export SIDECAR_RECYCLE_MS=3000000              # 主动回收间隔，默认 50 分钟
 ```
 

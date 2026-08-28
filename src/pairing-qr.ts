@@ -1,9 +1,9 @@
 import qrcode from "qrcode-terminal";
+import { t } from "./i18n/index.js";
 import {
   buildPairingPayload,
   pickPrimaryHost,
 } from "./pairing-payload.js";
-import { localAddresses } from "./utils/network.js";
 
 export function printPairingQR(
   host: string,
@@ -14,13 +14,13 @@ export function printPairingQR(
   const qrHost = host || pickPrimaryHost(allAddresses);
   const payload = buildPairingPayload(qrHost, port, token);
 
-  console.log("用 iPhone 扫描下方二维码配对（Path C）");
+  console.log(t("pairing.scanQr"));
   qrcode.generate(payload, { small: true });
-  console.log(`  QR host: ${qrHost}  port: ${port}`);
+  console.log(t("pairing.qrHostPort", { host: qrHost, port }));
 
   const others = allAddresses.filter((ip) => ip !== qrHost);
   if (others.length > 0) {
-    console.log("  其他可用 host（扫不上时可手输）:");
+    console.log(t("pairing.otherHosts"));
     for (const ip of others) {
       console.log(`    ${ip}`);
     }

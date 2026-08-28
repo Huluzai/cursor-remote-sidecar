@@ -1,4 +1,5 @@
 import { Cursor } from "@cursor/sdk";
+import { t } from "./i18n/index.js";
 
 export type CursorAuthSource = "env" | "stored" | "login";
 
@@ -28,8 +29,9 @@ export interface AuthDeps {
   }) => Promise<AuthLoginResult>;
 }
 
-export const LOGIN_REQUIRED_MESSAGE =
-  "请用 Cursor 账号在浏览器完成登录后重试。";
+export function loginRequiredMessage(): string {
+  return t("auth.loginRequired");
+}
 
 export async function resolveCursorAuth(
   deps: AuthDeps = {},
@@ -53,19 +55,19 @@ export async function resolveCursorAuth(
     return { email: status.email, source: "stored" };
   }
 
-  console.log("请用 Cursor 账号在浏览器中完成登录…");
+  console.log(t("auth.loginPrompt"));
   try {
     const result = await loginFn({
       apiKeyName: "cursor-remote-sidecar",
       onLoginUrl: (url) => {
-        console.log(`若浏览器未自动打开，请访问：\n  ${url}`);
+        console.log(t("auth.openUrl", { url }));
       },
     });
     return { email: result.email, source: "login" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`登录失败：${msg}`);
-    console.error(LOGIN_REQUIRED_MESSAGE);
+    console.error(t("auth.loginFailed", { message: msg }));
+    console.error(loginRequiredMessage());
     throw err;
   }
 }

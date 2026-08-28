@@ -3,9 +3,12 @@ import { resolveCursorAuth } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { createSidecarContext } from "./sidecar-context.js";
 import { createApp } from "./http/app.js";
+import { initLocale, t } from "./i18n/index.js";
 import { isStreamClosedError } from "./infra/cursor-sdk-adapter.js";
 import { printPairingQR } from "./pairing-qr.js";
 import { localAddresses } from "./utils/network.js";
+
+initLocale();
 
 const auth = await resolveCursorAuth();
 const config = loadConfig({
@@ -31,43 +34,49 @@ const app = createApp(ctx);
 app.listen(config.port, config.host, () => {
   const addrs = localAddresses();
   console.log("");
-  console.log("Cursor Remote sidecar (Path C) is running");
+  console.log(t("startup.running"));
   if (config.cursorEmail) {
-    console.log(`  Cursor:  已登录 (${config.cursorEmail})`);
+    console.log(
+      t("startup.cursorLoggedInWithEmail", { email: config.cursorEmail }),
+    );
   } else {
-    console.log("  Cursor:  已登录");
+    console.log(t("startup.cursorLoggedIn"));
   }
-  console.log(`  bind:    http://${config.host}:${config.port}`);
-  console.log(`  cwd:     ${config.defaultCwd}`);
-  console.log(`  model:   ${config.defaultModel}`);
-  console.log(`  配对码:  ${config.pairingToken}`);
+  console.log(
+    t("startup.bind", { url: `http://${config.host}:${config.port}` }),
+  );
+  console.log(t("startup.cwd", { path: config.defaultCwd }));
+  console.log(t("startup.model", { model: config.defaultModel }));
+  console.log(t("startup.pairingCode", { token: config.pairingToken }));
   if (config.pairingTokenPersisted) {
-    console.log("  配对码已保存，进程回收后无需在 iOS 重填");
+    console.log(t("startup.pairingCodePersisted"));
   }
   if (config.recycleMs > 0) {
     console.log(
-      `  recycle: every ${Math.round(config.recycleMs / 60_000)} min (SIDECAR_RECYCLE_MS)`,
+      t("startup.recycleEvery", {
+        minutes: Math.round(config.recycleMs / 60_000),
+      }),
     );
   } else {
-    console.log("  recycle: timer off (auth-stale may still exit 75)");
+    console.log(t("startup.recycleOff"));
   }
   console.log("");
-  console.log("Connect from iOS (same Wi‑Fi or Tailscale):");
+  console.log(t("startup.connectFromIos"));
   const hosts = addrs.length ? addrs : ["127.0.0.1"];
   for (const ip of hosts) {
-    console.log(`  host: ${ip}`);
-    console.log(`  port: ${config.port}`);
+    console.log(t("startup.host", { host: ip }));
+    console.log(t("startup.port", { port: config.port }));
   }
   printPairingQR("", config.port, config.pairingToken, hosts);
-  console.log("  或在 iOS App 登录页扫描二维码 / 手动输入配对码");
+  console.log(t("startup.orScanQr"));
   console.log("");
-  console.log("Health: GET /health (no auth)");
+  console.log(t("startup.health"));
 });
 
 ctx.recycleManager.scheduleTimer();
 
 async function shutdown() {
-  console.log("Shutting down sidecar…");
+  console.log(t("startup.shuttingDown"));
   for (const s of ctx.sessions.values()) {
     if (!s.agent) continue;
     try {
