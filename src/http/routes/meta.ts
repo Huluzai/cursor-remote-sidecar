@@ -4,19 +4,12 @@ import { Cursor } from "@cursor/sdk";
 import express from "express";
 import type { SidecarContext } from "../../sidecar-context.js";
 import { sdkAuthOptions } from "../../sdk-auth.js";
+import {
+  folderParentIfAllowed,
+  isPathAllowed,
+  resolveFolderListPath,
+} from "../../utils/folders.js";
 import { nowIso } from "../../utils/time.js";
-
-function isPathAllowed(
-  target: string,
-  homeDir: string,
-  defaultCwd: string,
-): boolean {
-  const resolved = resolve(target);
-  if (resolved === homeDir || resolved.startsWith(homeDir + "/")) return true;
-  if (resolved === defaultCwd || resolved.startsWith(defaultCwd + "/"))
-    return true;
-  return false;
-}
 
 export function mountHealthRoute(app: express.Application, ctx: SidecarContext) {
   app.get("/health", (_req, res) => {
@@ -73,14 +66,10 @@ export function createAuthedMetaRouter(ctx: SidecarContext) {
 
   router.get("/folders", (req, res) => {
     try {
-      const raw = req.query.path;
-      const base =
-        typeof raw === "string" && raw.trim()
-          ? resolve(raw.trim())
-          : ctx.config.defaultCwd;
-      if (
-        !isPathAllowed(base, ctx.config.homeDir, ctx.config.defaultCwd)
-      ) {
+      const homeDir = ctx.config.homeDir;
+      const defaultCwd = ctx.config.defaultCwd;
+      const base = resolveFolderListPath(req.query.path, homeDir, defaultCwd);
+      if (!isPathAllowed(base, homeDir, defaultCwd)) {
         res
           .status(403)
           .json({ error: "Forbidden", message: "path_not_allowed" });
@@ -92,24 +81,18 @@ export function createAuthedMetaRouter(ctx: SidecarContext) {
           .json({ error: "Not Found", message: "not_a_directory" });
         return;
       }
-      const parent = resolve(base, "..");
       const entries = readdirSync(base, { withFileTypes: true })
         .filter((d) => d.isDirectory() && !d.name.startsWith("."))
         .map((d) => {
           const childPath = resolve(base, d.name);
           return { name: d.name, path: childPath };
         })
-        .filter((e) =>
-          isPathAllowed(e.path, ctx.config.homeDir, ctx.config.defaultCwd),
-        )
+        .filter((e) => isPathAllowed(e.path, homeDir, defaultCwd))
         .sort((a, b) => a.name.localeCompare(b.name));
       res.json({
         path: base,
-        parent:
-          parent !== base &&
-          isPathAllowed(parent, ctx.config.homeDir, ctx.config.defaultCwd)
-            ? parent
-            : null,
+        parent: folderParentIfAllowed(base, homeDir, defaultCwd),
+        home: homeDir,
         entries,
       });
     } catch (err) {

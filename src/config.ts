@@ -56,6 +56,15 @@ function loadOrCreatePairingToken(
   return { token, persisted: true };
 }
 
+/** Default browse/create cwd: `SIDECAR_CWD` if set, otherwise the user home directory. */
+export function resolveDefaultCwd(
+  envCwd: string | undefined,
+  home: string,
+): string {
+  const trimmed = envCwd?.trim();
+  return resolve(trimmed ? trimmed : home);
+}
+
 export function loadConfig(auth?: {
   apiKey?: string;
   email?: string;
@@ -63,12 +72,13 @@ export function loadConfig(auth?: {
   const stateDir = resolve(homedir(), ".cursor-remote-sidecar");
   const { token, persisted } = loadOrCreatePairingToken(stateDir);
 
+  const homeDir = resolve(homedir());
   return {
     port: Number(process.env.SIDECAR_PORT ?? 8787),
     host: process.env.SIDECAR_HOST ?? "0.0.0.0",
-    defaultCwd: resolve(process.env.SIDECAR_CWD ?? process.cwd()),
+    defaultCwd: resolveDefaultCwd(process.env.SIDECAR_CWD, homeDir),
     defaultModel: process.env.SIDECAR_MODEL ?? "composer-2.5",
-    homeDir: resolve(homedir()),
+    homeDir,
     apiKey: auth?.apiKey,
     cursorEmail: auth?.email,
     pairingToken: token,

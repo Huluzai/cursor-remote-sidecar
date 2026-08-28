@@ -20,7 +20,7 @@ npx github:Huluzai/cursor-remote-sidecar
 可选环境变量：
 
 ```bash
-export SIDECAR_CWD=/path/to/your/local/project   # 默认工作目录
+export SIDECAR_CWD=/path/to/your/local/project   # 可选；不设则默认为用户主目录
 export SIDECAR_PORT=8787
 export SIDECAR_MODEL=composer-2.5
 # export SIDECAR_RECYCLE_MS=3000000              # 主动回收间隔，默认 50 分钟
@@ -61,7 +61,7 @@ npm start
 1. 打开 App → 选择 **Path C · 本机 Sidecar**
 2. 点 **扫描二维码**，对准 Mac 终端 sidecar 打印的 QR；或手动填入 IP / 端口 / 配对码
 3. 连接成功后即可新建会话
-4. 「新建」里可填 Mac 上的绝对路径 cwd（留空则用 sidecar 的 `SIDECAR_CWD`）
+4. 「新建」里可填 Mac 上的绝对路径 cwd（留空则用用户主目录，或 `SIDECAR_CWD` 若已设置）
 
 ## API（摘要）
 
@@ -69,6 +69,7 @@ npm start
 |------|------|------|
 | GET | `/health` | 无鉴权 |
 | GET | `/v1/me` | 校验配对码 |
+| GET | `/v1/folders` | 列目录；无 `path` 时为默认 cwd（主目录或 `SIDECAR_CWD`）；`path=~` / `home` 跳到主目录 |
 | GET/POST | `/v1/agents` | 列表 / 创建本地 Agent（`?includeArchived=true` 含归档） |
 | POST | `/v1/agents/:id/archive` | 归档会话（释放 SDK Agent，历史保留只读） |
 | POST | `/v1/agents/:id/runs` | 追问 |

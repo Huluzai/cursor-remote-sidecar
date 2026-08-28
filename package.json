@@ -1,6 +1,6 @@
 {
   "name": "cursor-remote-sidecar",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "type": "module",
   "description": "Path C local companion: run Cursor SDK agents on Mac and expose HTTP/SSE to the iOS app",
