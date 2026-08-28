@@ -48,7 +48,7 @@ export interface LocalAgentSession {
   updatedAt: string;
   latestRunId?: string;
   unread: boolean;
-  agent: SidecarAgent;
+  agent: SidecarAgent | null;
   runs: Map<string, LocalRun>;
   pendingQueue: QueuedPromptItem[];
   inflight?: Promise<void>;

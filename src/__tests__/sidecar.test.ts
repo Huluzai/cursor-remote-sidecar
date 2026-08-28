@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { trimRunEvents } from "../infra/session-repository.js";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { trimRunEvents, SessionRepository } from "../infra/session-repository.js";
+import { buildTranscript } from "../domain/session-presenters.js";
 import {
   assignTurnIdsToLines,
   coalesceRunEvents,
@@ -138,5 +142,70 @@ describe("isStreamClosedError", () => {
 
   it("ignores unrelated errors", () => {
     assert.equal(isStreamClosedError(new Error("agent busy")), false);
+  });
+});
+
+describe("SessionRepository archived persistence", () => {
+  it("persists and restores ARCHIVED sessions with transcript", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sidecar-test-"));
+    const stateFile = join(dir, "sessions.json");
+    const config = {
+      stateDir: dir,
+      stateFile,
+      defaultCwd: dir,
+      defaultModel: "composer-2.5",
+    } as import("../config.js").SidecarConfig;
+
+    const sessions = new Map<string, import("../types/session.js").LocalAgentSession>();
+    const repo = new SessionRepository(config, sessions);
+
+    sessions.set("local-archived", {
+      id: "local-archived",
+      name: "Archived chat",
+      status: "ARCHIVED",
+      cwd: dir,
+      model: { id: "composer-2.5" },
+      mode: "agent",
+      sdkAgentId: "sdk-1",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:01Z",
+      unread: false,
+      agent: null,
+      pendingQueue: [],
+      runs: new Map([
+        [
+          "run-1",
+          {
+            id: "run-1",
+            agentId: "local-archived",
+            status: "FINISHED",
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:01Z",
+            prompt: "hello",
+            result: "world",
+            events: [
+              { id: "e1", event: "user", data: { text: "hello" } },
+              { id: "e2", event: "assistant", data: { text: "world" } },
+            ],
+          },
+        ],
+      ]),
+    });
+
+    repo.persistNow();
+    const raw = JSON.parse(readFileSync(stateFile, "utf8")) as unknown[];
+    assert.equal(raw.length, 1);
+    assert.equal((raw[0] as { status: string }).status, "ARCHIVED");
+
+    sessions.clear();
+    await repo.restore();
+    const restored = sessions.get("local-archived");
+    assert.ok(restored);
+    assert.equal(restored!.status, "ARCHIVED");
+    assert.equal(restored!.agent, null);
+    const transcript = buildTranscript(restored!);
+    assert.ok(transcript.lines.length >= 2);
+
+    rmSync(dir, { recursive: true, force: true });
   });
 });

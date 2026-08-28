@@ -47,6 +47,8 @@ export async function clearSdkActiveRuns(
   session.currentSdkRun = null;
   await settleSdkRun(current);
 
+  if (!session.agent) return;
+
   try {
     const listed = await Agent.listRuns(session.agent.agentId, {
       runtime: "local",
@@ -81,6 +83,7 @@ export async function logAgentArtifacts(
   session: LocalAgentSession,
   runId: string,
 ): Promise<void> {
+  if (!session.agent) return;
   try {
     const items = await session.agent.listArtifacts();
     console.log("[sidecar] artifacts after run", {

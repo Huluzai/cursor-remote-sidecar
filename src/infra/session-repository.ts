@@ -6,6 +6,7 @@ import { MAX_EVENTS_PER_RUN } from "../config.js";
 import type {
   LocalAgentSession,
   LocalRun,
+  PersistedRun,
   PersistedSession,
 } from "../types/session.js";
 import type { RunStreamEvent } from "../types/events.js";
@@ -35,6 +36,65 @@ export function trimRunEvents(events: RunStreamEvent[]): RunStreamEvent[] {
     : merged;
 }
 
+function runsFromPersisted(entry: PersistedSession): Map<string, LocalRun> {
+  const runs = new Map<string, LocalRun>();
+  for (const r of entry.runs ?? []) {
+    const events = Array.isArray(r.events) ? trimRunEvents(r.events) : [];
+    let status = r.status;
+    if (entry.status === "ACTIVE" && (status === "CREATING" || status === "RUNNING")) {
+      status = "ERROR";
+      if (!r.result) {
+        r.result = "Sidecar restarted while run was in progress";
+      }
+    }
+    runs.set(r.id, {
+      id: r.id,
+      agentId: r.agentId,
+      status,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      durationMs: r.durationMs,
+      result: r.result,
+      prompt: r.prompt,
+      events,
+    });
+  }
+  return runs;
+}
+
+function toPersistedSession(s: LocalAgentSession): PersistedSession {
+  return {
+    id: s.id,
+    name: s.name,
+    status: s.status,
+    cwd: s.cwd,
+    model: s.model.id,
+    modelParams: s.model.params,
+    mode: s.mode,
+    sdkAgentId: s.sdkAgentId,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    latestRunId: s.latestRunId,
+    unread: s.unread,
+    pendingQueue: s.pendingQueue,
+    runs: [...s.runs.values()].map((r) => {
+      const events = trimRunEvents(r.events);
+      if (events !== r.events) r.events = events;
+      return {
+        id: r.id,
+        agentId: r.agentId,
+        status: r.status,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        durationMs: r.durationMs,
+        result: r.result,
+        prompt: r.prompt,
+        events,
+      };
+    }),
+  };
+}
+
 export class SessionRepository {
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -46,38 +106,9 @@ export class SessionRepository {
   persistNow(): void {
     try {
       mkdirSync(this.config.stateDir, { recursive: true });
-      const items: PersistedSession[] = [...this.sessions.values()]
-        .filter((s) => s.status === "ACTIVE")
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          status: s.status,
-          cwd: s.cwd,
-          model: s.model.id,
-          modelParams: s.model.params,
-          mode: s.mode,
-          sdkAgentId: s.sdkAgentId,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
-          latestRunId: s.latestRunId,
-          unread: s.unread,
-          pendingQueue: s.pendingQueue,
-          runs: [...s.runs.values()].map((r) => {
-            const events = trimRunEvents(r.events);
-            if (events !== r.events) r.events = events;
-            return {
-              id: r.id,
-              agentId: r.agentId,
-              status: r.status,
-              createdAt: r.createdAt,
-              updatedAt: r.updatedAt,
-              durationMs: r.durationMs,
-              result: r.result,
-              prompt: r.prompt,
-              events,
-            };
-          }),
-        }));
+      const items: PersistedSession[] = [...this.sessions.values()].map(
+        toPersistedSession,
+      );
       writeFileSync(
         this.config.stateFile,
         JSON.stringify(items, null, 2),
@@ -108,7 +139,6 @@ export class SessionRepository {
         : ((raw as { sessions?: PersistedSession[] }).sessions ?? []);
 
       for (const entry of entries) {
-        if (entry.status !== "ACTIVE" || !entry.sdkAgentId) continue;
         try {
           const mode = entry.mode === "plan" ? "plan" : "agent";
           const model = parseModelSelection(
@@ -116,36 +146,42 @@ export class SessionRepository {
             this.config.defaultModel,
           );
           const cwd = resolve(String(entry.cwd ?? this.config.defaultCwd));
+          const runs = runsFromPersisted(entry);
+
+          if (entry.status === "ARCHIVED") {
+            const session: LocalAgentSession = {
+              id: entry.id,
+              name: entry.name,
+              status: "ARCHIVED",
+              cwd,
+              model,
+              mode,
+              sdkAgentId: entry.sdkAgentId,
+              createdAt: entry.createdAt,
+              updatedAt: entry.updatedAt,
+              latestRunId: entry.latestRunId,
+              unread: Boolean(entry.unread),
+              agent: null,
+              runs,
+              pendingQueue: Array.isArray(entry.pendingQueue)
+                ? entry.pendingQueue
+                : [],
+            };
+            this.sessions.set(session.id, session);
+            console.log(
+              `[sidecar] restored archived session ${session.id} (read-only)`,
+            );
+            continue;
+          }
+
+          if (!entry.sdkAgentId) continue;
+
           const agent = await Agent.resume(entry.sdkAgentId, {
             ...sdkAuthOptions(this.config),
             model: toSdkModel(model),
             local: { cwd },
             mode,
           });
-          const runs = new Map<string, LocalRun>();
-          for (const r of entry.runs ?? []) {
-            const events = Array.isArray(r.events)
-              ? trimRunEvents(r.events)
-              : [];
-            let status = r.status;
-            if (status === "CREATING" || status === "RUNNING") {
-              status = "ERROR";
-              if (!r.result) {
-                r.result = "Sidecar restarted while run was in progress";
-              }
-            }
-            runs.set(r.id, {
-              id: r.id,
-              agentId: r.agentId,
-              status,
-              createdAt: r.createdAt,
-              updatedAt: r.updatedAt,
-              durationMs: r.durationMs,
-              result: r.result,
-              prompt: r.prompt,
-              events,
-            });
-          }
           const session: LocalAgentSession = {
             id: entry.id,
             name: entry.name,

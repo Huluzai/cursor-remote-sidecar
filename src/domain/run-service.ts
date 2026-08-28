@@ -129,12 +129,15 @@ export class RunService {
     };
 
     try {
+      if (!session.agent) {
+        throw new Error("Session agent is not available");
+      }
       const trySend = async () =>
-        session.agent.send(prompt, {
+        session.agent!.send(prompt, {
           ...sendOptions,
           mode,
           model: toSdkModel(activeModel),
-        } as Parameters<typeof session.agent.send>[1]);
+        } as Parameters<NonNullable<typeof session.agent>["send"]>[1]);
 
       try {
         activeRun = await trySend();

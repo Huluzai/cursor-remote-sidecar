@@ -69,6 +69,7 @@ ctx.recycleManager.scheduleTimer();
 async function shutdown() {
   console.log("Shutting down sidecar…");
   for (const s of ctx.sessions.values()) {
+    if (!s.agent) continue;
     try {
       await s.agent[Symbol.asyncDispose]();
     } catch {

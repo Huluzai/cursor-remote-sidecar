@@ -54,7 +54,7 @@ npm start
 | `scripts/supervise.mjs` | 收到 exit 75 / 异常退出后自动重新 `spawn` 子进程 |
 | 配对码文件 | 默认持久化，回收后 iOS 配对码不变 |
 
-会话会写入 `~/.cursor-remote-sidecar/sessions.json`，新进程启动时 `Agent.resume` 恢复。
+会话会写入 `~/.cursor-remote-sidecar/sessions.json`，新进程启动时 `Agent.resume` 恢复 **ACTIVE** 会话；**ARCHIVED** 会话仅恢复 transcript 数据（只读，不 resume SDK Agent）。
 
 ## iOS 配对
 
@@ -69,7 +69,8 @@ npm start
 |------|------|------|
 | GET | `/health` | 无鉴权 |
 | GET | `/v1/me` | 校验配对码 |
-| GET/POST | `/v1/agents` | 列表 / 创建本地 Agent |
+| GET/POST | `/v1/agents` | 列表 / 创建本地 Agent（`?includeArchived=true` 含归档） |
+| POST | `/v1/agents/:id/archive` | 归档会话（释放 SDK Agent，历史保留只读） |
 | POST | `/v1/agents/:id/runs` | 追问 |
 | GET | `/v1/agents/:id/runs/:runId/stream` | SSE |
 | GET | `/v1/agents/:id/transcript` | 会话转写（sidecar events 真源） |

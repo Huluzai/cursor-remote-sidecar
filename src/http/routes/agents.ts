@@ -327,8 +327,12 @@ export function createAgentsRouter(ctx: SidecarContext) {
 
   router.get("/:id/artifacts", async (req, res) => {
     const session = sessions.get(req.params.id);
-    if (!session) {
-      res.status(404).json({ error: "Not Found", message: "agent_not_found" });
+    if (!session || session.status !== "ACTIVE" || !session.agent) {
+      if (!session) {
+        res.status(404).json({ error: "Not Found", message: "agent_not_found" });
+        return;
+      }
+      res.json({ items: [] });
       return;
     }
     try {
@@ -353,10 +357,13 @@ export function createAgentsRouter(ctx: SidecarContext) {
       return;
     }
     session.status = "ARCHIVED";
-    try {
-      await session.agent[Symbol.asyncDispose]();
-    } catch {
-      // ignore dispose errors
+    if (session.agent) {
+      try {
+        await session.agent[Symbol.asyncDispose]();
+      } catch {
+        // ignore dispose errors
+      }
+      session.agent = null;
     }
     inbox.broadcastAgent(session);
     sessionRepo.persistNow();

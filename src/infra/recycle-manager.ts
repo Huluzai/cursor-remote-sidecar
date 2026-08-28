@@ -43,6 +43,7 @@ export class RecycleManager {
       }
       this.sessionRepo.persistNow();
       for (const s of this.sessions.values()) {
+        if (!s.agent) continue;
         try {
           await s.agent[Symbol.asyncDispose]();
         } catch {
