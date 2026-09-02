@@ -5,6 +5,10 @@ import express from "express";
 import type { SidecarContext } from "../../sidecar-context.js";
 import { sdkAuthOptions } from "../../sdk-auth.js";
 import {
+  listBrowseEntries,
+  searchBrowseEntriesRecursive,
+} from "../../utils/browse.js";
+import {
   folderParentIfAllowed,
   isPathAllowed,
   resolveFolderListPath,
@@ -100,6 +104,61 @@ export function createAuthedMetaRouter(ctx: SidecarContext) {
       res
         .status(500)
         .json({ error: "Internal Server Error", message: "folder_list_failed" });
+    }
+  });
+
+  router.get("/browse", (req, res) => {
+    try {
+      const homeDir = ctx.config.homeDir;
+      const defaultCwd = ctx.config.defaultCwd;
+      const base = resolveFolderListPath(req.query.path, homeDir, defaultCwd);
+      if (!isPathAllowed(base, homeDir, defaultCwd)) {
+        res
+          .status(403)
+          .json({ error: "Forbidden", message: "path_not_allowed" });
+        return;
+      }
+      if (!existsSync(base) || !statSync(base).isDirectory()) {
+        res
+          .status(404)
+          .json({ error: "Not Found", message: "not_a_directory" });
+        return;
+      }
+
+      const query =
+        typeof req.query.q === "string" ? req.query.q.trim() : "";
+      const recursive =
+        req.query.recursive === "1" ||
+        req.query.recursive === "true";
+
+      let entries;
+      if (query && recursive) {
+        entries = searchBrowseEntriesRecursive(
+          base,
+          homeDir,
+          defaultCwd,
+          query,
+        );
+      } else {
+        entries = listBrowseEntries(
+          base,
+          homeDir,
+          defaultCwd,
+          query || undefined,
+        );
+      }
+
+      res.json({
+        path: base,
+        parent: folderParentIfAllowed(base, homeDir, defaultCwd),
+        home: homeDir,
+        entries,
+      });
+    } catch (err) {
+      console.warn("[sidecar] /v1/browse failed", err);
+      res
+        .status(500)
+        .json({ error: "Internal Server Error", message: "browse_failed" });
     }
   });
 

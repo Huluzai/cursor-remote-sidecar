@@ -71,6 +71,7 @@ npm start
 | GET | `/health` | 无鉴权 |
 | GET | `/v1/me` | 校验配对码 |
 | GET | `/v1/folders` | 列目录；无 `path` 时为默认 cwd（主目录或 `SIDECAR_CWD`）；`path=~` / `home` 跳到主目录 |
+| GET | `/v1/browse` | 列文件与目录；`q` 过滤名称；`recursive=true` 时在 `path` 子树内递归搜索（最多 50 条） |
 | GET/POST | `/v1/agents` | 列表 / 创建本地 Agent（`?includeArchived=true` 含归档） |
 | POST | `/v1/agents/:id/archive` | 归档会话（释放 SDK Agent，历史保留只读） |
 | POST | `/v1/agents/:id/runs` | 追问 |
